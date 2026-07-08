@@ -1683,3 +1683,163 @@
     cursor: not-allowed !important;
     opacity: 0.35 !important;
 }
+
+/* =====================================================================
+   Skill Analytics - Cool Animations & Effects
+   ===================================================================== */
+
+/* Header entrance animation */
+@keyframes skillHeaderIn {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.skill-header-animate {
+    animation: skillHeaderIn 0.6s ease-out both;
+}
+
+/* Icon floating animation */
+@keyframes iconFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+}
+.skill-icon-float {
+    animation: iconFloat 3s ease-in-out infinite;
+}
+
+/* Icon bounce on card hover */
+@keyframes iconBounce {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.15) rotate(5deg); }
+}
+.skill-card-3d:hover .skill-icon-bounce {
+    animation: iconBounce 0.5s ease-in-out;
+}
+
+/* Card 3D tilt effect */
+.skill-card-3d {
+    perspective: 800px;
+    transition: transform 0.3s ease;
+}
+.skill-card-3d:hover {
+    transform: translateY(-6px);
+}
+.skill-card-3d:hover > div:first-child {
+    opacity: 1 !important;
+}
+
+/* Card glow border pulse */
+@keyframes cardGlow {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0); }
+    50% { box-shadow: 0 0 20px 2px rgba(56, 189, 248, 0.15); }
+}
+.skill-card-glow:hover {
+    animation: cardGlow 2s ease-in-out infinite;
+}
+
+/* Counter number animation */
+@keyframes counterPop {
+    0% { opacity: 0; transform: scale(0.5) translateY(10px); }
+    60% { transform: scale(1.1) translateY(-2px); }
+    100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+.counter-animate {
+    animation: counterPop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* Fade in up for sections */
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.skill-fade-in-up {
+    opacity: 0;
+    animation: fadeInUp 0.7s ease-out forwards;
+}
+
+/* Table row hover glow */
+#analytics-table-body tr {
+    transition: all 0.25s ease;
+}
+#analytics-table-body tr:hover {
+    background: linear-gradient(90deg, rgba(6, 182, 212, 0.05) 0%, rgba(59, 130, 246, 0.05) 100%);
+    box-shadow: inset 0 0 30px rgba(6, 182, 212, 0.03);
+}
+
+/* Progress bar shimmer */
+@keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+.skill-progress-shimmer {
+    background: linear-gradient(90deg, transparent 25%, rgba(255,255,255,0.15) 50%, transparent 75%);
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite;
+}
+
+/* Health badge pulse for high scores */
+@keyframes healthPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+    50% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+}
+.skill-health-pulse {
+    animation: healthPulse 2s ease-in-out infinite;
+}
+
+/* Unused skill card hover */
+.skill-unused-card {
+    transition: all 0.3s ease;
+}
+.skill-unused-card:hover {
+    transform: translateX(4px);
+    border-color: rgba(148, 163, 184, 0.4) !important;
+    background: rgba(30, 41, 59, 0.5) !important;
+}
+
+/* Particle canvas styling */
+#skill-particles-canvas {
+    opacity: 0.4;
+}
+
+/* Rank badge styles */
+.skill-rank-gold {
+    text-shadow: 0 0 8px rgba(255, 215, 0, 0.5);
+}
+.skill-rank-silver {
+    text-shadow: 0 0 8px rgba(192, 192, 192, 0.5);
+}
+.skill-rank-bronze {
+    text-shadow: 0 0 8px rgba(205, 127, 50, 0.5);
+}
+
+/* Refresh button ripple */
+@keyframes ripple {
+    0% { transform: scale(0); opacity: 0.5; }
+    100% { transform: scale(4); opacity: 0; }
+}
+
+/* Staggered card entrance */
+.skill-card-3d:nth-child(1) { animation: fadeInUp 0.5s ease-out 0.1s both; }
+.skill-card-3d:nth-child(2) { animation: fadeInUp 0.5s ease-out 0.2s both; }
+.skill-card-3d:nth-child(3) { animation: fadeInUp 0.5s ease-out 0.3s both; }
+.skill-card-3d:nth-child(4) { animation: fadeInUp 0.5s ease-out 0.4s both; }
+.skill-card-3d:nth-child(5) { animation: fadeInUp 0.5s ease-out 0.5s both; }
+
+/* Table row staggered entrance */
+@keyframes rowSlideIn {
+    from { opacity: 0; transform: translateX(-20px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+.skill-row-animate {
+    animation: rowSlideIn 0.4s ease-out both;
+}
+
+/* Sparkle effect on numbers */
+@keyframes sparkle {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; text-shadow: 0 0 10px currentColor; }
+}
+.skill-number-sparkle {
+    animation: sparkle 1.5s ease-in-out;
+}
+
+

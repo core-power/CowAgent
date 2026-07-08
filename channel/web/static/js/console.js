@@ -16,7 +16,28 @@ const I18N = {
         nav_chat: '对话', nav_manage: '管理', nav_monitor: '监控',
         menu_chat: '对话', menu_config: '配置', menu_models: '模型', menu_skills: '技能',
         menu_memory: '记忆', menu_knowledge: '知识', menu_channels: '通道', menu_tasks: '定时',
-        menu_logs: '日志',
+        menu_logs: '日志', menu_skill_analytics: '技能监控',
+        skill_analytics_title: '技能监控',
+        skill_analytics_desc: 'Skill 使用分析与健康度评估',
+        skill_analytics_refresh: '刷新数据',
+        skill_analytics_total_installed: '已安装 Skill',
+        skill_analytics_total_uses: '总使用次数',
+        skill_analytics_active: '活跃 Skill',
+        skill_analytics_success_rate: '平均成功率',
+        skill_analytics_avg_time: '平均执行时间',
+        skill_analytics_usage: '使用排行',
+        skill_analytics_col_skill: '技能',
+        skill_analytics_col_uses: '使用次数',
+        skill_analytics_col_success: '成功率',
+        skill_analytics_col_time: '执行时间',
+        skill_analytics_col_health: '健康度',
+        skill_analytics_col_last: '最后使用',
+        skill_analytics_loading: '加载中...',
+        skill_analytics_no_data: '暂无使用数据',
+        skill_analytics_load_failed: '加载失败',
+        skill_analytics_unused: '未使用的 Skill',
+        skill_analytics_unused_desc: '这些 Skill 尚未被调用过，可以考虑清理或优化使用方式',
+        skill_analytics_all_used: '所有 Skill 都已被使用过 🎉',
         models_title: '模型管理',
         models_desc: '统一管理对话、图像、语音、向量、搜索能力',
         models_section_vendors: '厂商凭据',
@@ -260,7 +281,28 @@ const I18N = {
         nav_chat: 'Chat', nav_manage: 'Management', nav_monitor: 'Monitor',
         menu_chat: 'Chat', menu_config: 'Config', menu_models: 'Models', menu_skills: 'Skills',
         menu_memory: 'Memory', menu_knowledge: 'Knowledge', menu_channels: 'Channels', menu_tasks: 'Tasks',
-        menu_logs: 'Logs',
+        menu_logs: 'Logs', menu_skill_analytics: 'Skill Analytics',
+        skill_analytics_title: 'Skill Analytics',
+        skill_analytics_desc: 'Skill usage analysis and health assessment',
+        skill_analytics_refresh: 'Refresh',
+        skill_analytics_total_installed: 'Installed Skills',
+        skill_analytics_total_uses: 'Total Uses',
+        skill_analytics_active: 'Active Skills',
+        skill_analytics_success_rate: 'Avg Success Rate',
+        skill_analytics_avg_time: 'Avg Execution Time',
+        skill_analytics_usage: 'Usage Ranking',
+        skill_analytics_col_skill: 'Skill',
+        skill_analytics_col_uses: 'Uses',
+        skill_analytics_col_success: 'Success Rate',
+        skill_analytics_col_time: 'Exec Time',
+        skill_analytics_col_health: 'Health',
+        skill_analytics_col_last: 'Last Used',
+        skill_analytics_loading: 'Loading...',
+        skill_analytics_no_data: 'No usage data',
+        skill_analytics_load_failed: 'Load failed',
+        skill_analytics_unused: 'Unused Skills',
+        skill_analytics_unused_desc: 'These skills have not been called yet, consider cleaning or optimizing usage',
+        skill_analytics_all_used: 'All skills have been used 🎉',
         models_title: 'Models',
         models_desc: 'Manage chat, image, voice, embedding and search capabilities in one place',
         models_section_vendors: 'Provider Credentials',
@@ -712,6 +754,7 @@ const VIEW_META = {
     channels: { group: 'nav_manage',  page: 'menu_channels' },
     tasks:    { group: 'nav_manage',  page: 'menu_tasks' },
     logs:     { group: 'nav_monitor', page: 'menu_logs' },
+    'skill-analytics': { group: 'nav_monitor', page: 'menu_skill_analytics' },
 };
 
 let currentView = 'chat';
@@ -4644,7 +4687,7 @@ function loadToolsSection() {
         toolsLoaded = true;
     }).catch(() => {
         emptyEl.classList.remove('hidden');
-        emptyEl.innerHTML = `<span class="text-sm text-slate-400 dark:text-slate-500">${currentLang === 'zh' ? '加载失败' : 'Failed to load'}</span>`;
+        emptyEl.innerHTML = `<span class="text-sm text-slate-400 dark:text-slate-500">${t('skill_analytics_load_failed')}</span>`;
     });
 }
 
@@ -7760,7 +7803,192 @@ navigateTo = function(viewId) {
     else if (viewId === 'channels') loadChannelsView();
     else if (viewId === 'tasks') loadTasksView();
     else if (viewId === 'logs') startLogStream();
+    else if (viewId === 'skill-analytics') loadSkillAnalytics();
 };
+
+// =====================================================================
+// Skill Analytics View
+// =====================================================================
+
+// Animated counter
+function animateCounter(el, target, suffix = '') {
+    const duration = 800;
+    const start = 0;
+    const startTime = performance.now();
+    
+    function update(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const easeOut = 1 - Math.pow(1 - progress, 3);
+        const current = Math.floor(start + (target - start) * easeOut);
+        el.textContent = current + suffix;
+        if (progress < 1) {
+            requestAnimationFrame(update);
+        } else {
+            el.textContent = target + suffix;
+            el.classList.add('skill-number-sparkle');
+        }
+    }
+    requestAnimationFrame(update);
+}
+
+function loadSkillAnalytics() {
+    const totalInstalledEl = document.getElementById('analytics-total-installed');
+    const totalUsesEl = document.getElementById('analytics-total-uses');
+    const activeSkillsEl = document.getElementById('analytics-active-skills');
+    const successRateEl = document.getElementById('analytics-success-rate');
+    const avgTimeEl = document.getElementById('analytics-avg-time');
+    const tableBodyEl = document.getElementById('analytics-table-body');
+    const unusedListEl = document.getElementById('analytics-unused-list');
+
+    // Show loading state
+    totalInstalledEl.textContent = '-';
+    totalUsesEl.textContent = '-';
+    activeSkillsEl.textContent = '-';
+    successRateEl.textContent = '-';
+    avgTimeEl.textContent = '-';
+    tableBodyEl.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-slate-500 dark:text-slate-400">${t('skill_analytics_loading')}</td></tr>`;
+    unusedListEl.innerHTML = `<p class="text-sm text-slate-500 dark:text-slate-400">${t('skill_analytics_loading')}</p>`;
+
+    // Fetch analytics data
+    fetch('/api/skill-analytics').then(r => r.json()).then(data => {
+        if (data.status !== 'success') {
+            tableBodyEl.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-red-500">${t('skill_analytics_load_failed')}</td></tr>`;
+            return;
+        }
+
+        const analytics = data.analytics || {};
+        const skills = analytics.skills || {};
+        const unused = analytics.unused || [];
+        const totalInstalled = analytics.total_installed || 0;
+
+        // Calculate summary stats
+        let totalUses = 0;
+        let totalSuccess = 0;
+        let totalTime = 0;
+        let activeCount = 0;
+
+        Object.values(skills).forEach(skill => {
+            totalUses += skill.uses || 0;
+            totalSuccess += skill.success || 0;
+            totalTime += skill.total_time || 0;
+            if (skill.uses > 0) activeCount++;
+        });
+
+        const avgSuccessRate = totalUses > 0 ? (totalSuccess / totalUses * 100).toFixed(1) : 0;
+        const avgTime = totalUses > 0 ? (totalTime / totalUses).toFixed(0) : 0;
+
+        // Animate summary cards
+        animateCounter(totalInstalledEl, totalInstalled);
+        animateCounter(totalUsesEl, totalUses);
+        animateCounter(activeSkillsEl, activeCount);
+        animateCounter(successRateEl, parseFloat(avgSuccessRate), '%');
+        animateCounter(avgTimeEl, parseInt(avgTime), 'ms');
+
+        // Build usage table - show ALL skills (used first, then unused)
+        const usedSkills = Object.entries(skills)
+            .filter(([_, s]) => s.uses > 0)
+            .sort((a, b) => b[1].uses - a[1].uses);
+        
+        const unusedSkills = Object.entries(skills)
+            .filter(([_, s]) => s.uses === 0)
+            .sort((a, b) => a[0].localeCompare(b[0]));
+        
+        const skillArray = [...usedSkills, ...unusedSkills];
+
+        if (skillArray.length === 0) {
+            tableBodyEl.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-slate-400">${t('skill_analytics_no_data')}</td></tr>`;
+        } else {
+            tableBodyEl.innerHTML = '';
+            let rankIndex = 0;
+            skillArray.forEach(([name, skill]) => {
+                const isUsed = skill.uses > 0;
+                const successRate = skill.uses > 0 ? (skill.success / skill.uses * 100).toFixed(1) : 0;
+                const avgExecTime = skill.uses > 0 ? (skill.total_time / skill.uses).toFixed(0) : 0;
+                const healthScore = isUsed ? Math.min(100, Math.round(successRate * 0.7 + (avgExecTime < 1000 ? 30 : avgExecTime < 3000 ? 20 : 10))) : 0;
+                const lastUsed = skill.last_used ? new Date(skill.last_used).toLocaleString('zh-CN') : '-';
+
+                const healthColor = !isUsed ? 'from-slate-600 to-slate-700' : healthScore >= 80 ? 'from-emerald-500 to-teal-500' : healthScore >= 60 ? 'from-amber-500 to-orange-500' : 'from-red-500 to-rose-500';
+                const healthTextColor = !isUsed ? 'text-slate-500' : healthScore >= 80 ? 'text-emerald-400' : healthScore >= 60 ? 'text-amber-400' : 'text-red-400';
+                const successTextColor = !isUsed ? 'text-slate-500' : successRate >= 90 ? 'text-emerald-400' : successRate >= 70 ? 'text-amber-400' : 'text-red-400';
+                
+                let rankBadge;
+                if (!isUsed) {
+                    rankBadge = '-';
+                } else if (rankIndex === 0) {
+                    rankBadge = '🥇';
+                } else if (rankIndex === 1) {
+                    rankBadge = '🥈';
+                } else if (rankIndex === 2) {
+                    rankBadge = '🥉';
+                } else {
+                    rankBadge = `#${rankIndex + 1}`;
+                }
+                if (isUsed) rankIndex++;
+
+                const row = document.createElement('tr');
+                row.className = isUsed ? 'hover:bg-cyan-500/5 transition-all duration-200' : 'hover:bg-slate-500/5 transition-all duration-200';
+                row.innerHTML = `
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-gradient-to-br ${isUsed ? 'from-cyan-500/20 to-blue-500/20 border-cyan-500/30' : 'from-slate-600/20 to-slate-700/20 border-slate-500/30'} border flex items-center justify-center text-xs font-bold ${isUsed ? 'text-cyan-400' : 'text-slate-400'}">
+                                ${rankBadge}
+                            </div>
+                            <span class="font-medium text-sm ${isUsed ? 'text-slate-200' : 'text-slate-400'} font-mono">${escapeHtml(name)}</span>
+                        </div>
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <span class="text-sm font-semibold ${isUsed ? 'text-blue-400' : 'text-slate-500'}">${skill.uses}</span>
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <div class="flex items-center gap-2">
+                            <div class="w-24 h-2 bg-slate-700 rounded-full overflow-hidden">
+                                <div class="h-full bg-gradient-to-r ${healthColor} rounded-full transition-all duration-500" style="width: ${successRate}%"></div>
+                            </div>
+                            <span class="text-sm font-semibold ${successTextColor}">${successRate}%</span>
+                        </div>
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <span class="text-sm ${isUsed ? 'text-slate-300' : 'text-slate-500'}">${avgExecTime}<span class="text-slate-400 text-xs ml-1">ms</span></span>
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap">
+                        <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gradient-to-r ${healthColor} bg-opacity-20 border border-white/10">
+                            <i class="fas ${isUsed ? 'fa-shield-halved' : 'fa-minus-circle'} text-xs ${healthTextColor}"></i>
+                            <span class="text-sm font-bold ${healthTextColor}">${isUsed ? healthScore : '-'}</span>
+                        </div>
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-xs ${isUsed ? 'text-slate-400' : 'text-slate-500'}">${lastUsed}</td>
+                `;
+                tableBodyEl.appendChild(row);
+            });
+        }
+
+        // Build unused skills list
+        if (unused.length === 0) {
+            unusedListEl.innerHTML = `<p class="text-sm text-slate-400">${t('skill_analytics_all_used')}</p>`;
+        } else {
+            unusedListEl.innerHTML = '';
+            const grid = document.createElement('div');
+            grid.className = 'grid grid-cols-1 md:grid-cols-2 gap-3';
+            unused.forEach(name => {
+                const item = document.createElement('div');
+                item.className = 'flex items-center gap-3 p-4 rounded-xl bg-slate-800/30 border border-slate-600/30 hover:border-slate-500/50 transition-all duration-200';
+                item.innerHTML = `
+                    <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-slate-600/30 to-slate-700/30 border border-slate-500/20 flex items-center justify-center">
+                        <i class="fas fa-puzzle-piece text-slate-400 text-sm"></i>
+                    </div>
+                    <span class="text-sm text-slate-300 font-mono">${escapeHtml(name)}</span>
+                `;
+                grid.appendChild(item);
+            });
+            unusedListEl.appendChild(grid);
+        }
+    }).catch(err => {
+        console.error('Failed to load skill analytics:', err);
+        tableBodyEl.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-red-400">${t('skill_analytics_load_failed')}</td></tr>`;
+        unusedListEl.innerHTML = `<p class="text-sm text-red-400">${t('skill_analytics_load_failed')}</p>`;
+    });
+}
 
 // =====================================================================
 // Knowledge View

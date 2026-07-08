@@ -1288,6 +1288,7 @@ class WebChannel(ChatChannel):
             '/api/messages/delete', 'MessageDeleteHandler',
             '/api/logs', 'LogsHandler',
             '/api/version', 'VersionHandler',
+            '/api/skill-analytics', 'SkillAnalyticsHandler',
             '/assets/(.*)', 'AssetsHandler',
         )
         app = web.application(urls, globals(), autoreload=False)
@@ -4917,3 +4918,71 @@ class VersionHandler:
         web.header('Content-Type', 'application/json; charset=utf-8')
         from cli import __version__
         return json.dumps({"version": __version__})
+
+
+class SkillAnalyticsHandler:
+    def GET(self):
+        _require_auth()
+        web.header('Content-Type', 'application/json; charset=utf-8')
+        try:
+            from agent.skills.analytics import generate_usage_report, get_unused_skills
+            workspace_root = _get_workspace_root()
+            
+            # Get report in JSON format
+            report_json = generate_usage_report(workspace_root, format="json")
+            report_data = json.loads(report_json) if report_json != "No skill usage data available yet." else {}
+            
+            # Get unused skills
+            unused = get_unused_skills(workspace_root)
+            
+            # Scan all installed skills from skills/ directory
+            skills_dir = os.path.join(workspace_root, 'skills')
+            installed_skills = set()
+            if os.path.isdir(skills_dir):
+                for entry in os.listdir(skills_dir):
+                    skill_md = os.path.join(skills_dir, entry, 'SKILL.md')
+                    if os.path.isdir(os.path.join(skills_dir, entry)) and os.path.isfile(skill_md):
+                        installed_skills.add(entry)
+            
+            # Transform report_data to match frontend expected format
+            skills_data = {}
+            for skill_name, skill_stats in report_data.get("skills", {}).items():
+                skills_data[skill_name] = {
+                    "uses": skill_stats.get("total_usage", 0),
+                    "success": skill_stats.get("success_count", 0),
+                    "failure": skill_stats.get("failure_count", 0),
+                    "total_time": skill_stats.get("avg_execution_time_ms", 0) * skill_stats.get("total_usage", 0),
+                    "last_used": skill_stats.get("last_used"),
+                    "installed": skill_name in installed_skills,
+                }
+            
+            # Add installed but never-used skills with zero stats
+            unused_list = []
+            for skill_name in sorted(installed_skills):
+                if skill_name not in skills_data:
+                    skills_data[skill_name] = {
+                        "uses": 0,
+                        "success": 0,
+                        "failure": 0,
+                        "total_time": 0,
+                        "last_used": None,
+                        "installed": True,
+                    }
+                    unused_list.append(skill_name)
+            
+            # Merge with analytics unused list
+            all_unused = sorted(set(unused) | set(unused_list))
+            
+            return json.dumps({
+                "status": "success",
+                "analytics": {
+                    "skills": skills_data,
+                    "unused": all_unused,
+                    "total_installed": len(installed_skills),
+                    "total_used": len([s for s in skills_data.values() if s["uses"] > 0]),
+                }
+            }, ensure_ascii=False)
+        except Exception as e:
+            logger.error(f"[WebChannel] Skill analytics API error: {e}")
+            return json.dumps({"status": "error", "message": str(e)})
+

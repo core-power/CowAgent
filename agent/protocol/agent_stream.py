@@ -1271,6 +1271,12 @@ class AgentStreamExecutor:
             success = result.status == "success"
             self._record_tool_result(tool_name, arguments, success)
 
+            # Record skill usage if this is a skill
+            self._record_skill_usage_if_applicable(
+                tool_name, arguments, success, execution_time * 1000,
+                result.result if not success else ""
+            )
+
             # Auto-refresh skills after skill creation
             if tool_name == "bash" and result.status == "success":
                 command = arguments.get("command", "")
@@ -1303,6 +1309,66 @@ class AgentStreamExecutor:
                 **error_result
             })
             return error_result
+
+    def _record_skill_usage_if_applicable(
+        self, tool_name: str, arguments: dict, success: bool, execution_time_ms: float, error_message: str = ""
+    ) -> None:
+        """Record skill usage if the tool references any skill directory.
+        
+        This method checks if the executed tool references a skill directory
+        (e.g., reading SKILL.md, executing scripts, or any file operations),
+        and if so, records the usage for analytics purposes.
+        """
+        try:
+            skill_manager = getattr(self.agent, 'skill_manager', None)
+            if not skill_manager:
+                return
+            
+            skill_name = None
+            
+            # Case 1: Tool name directly matches a skill (unlikely but keep for compatibility)
+            skill_entry = skill_manager.get_skill(tool_name)
+            if skill_entry:
+                skill_name = tool_name
+            else:
+                # Case 2: Tool arguments contain a reference to a skill directory
+                # e.g., read(path='.../skills/searxng-search/SKILL.md')
+                # e.g., bash(command='python .../skills/searxng-search/scripts/search.py')
+                # e.g., write(path='.../skills/image-generation/SKILL.md')
+                pattern = re.compile(r'skills/([^/]+)/')
+                
+                if arguments:
+                    for key, value in arguments.items():
+                        if isinstance(value, str):
+                            match = pattern.search(value)
+                            if match:
+                                candidate = match.group(1)
+                                # Verify this skill actually exists
+                                if skill_manager.get_skill(candidate):
+                                    skill_name = candidate
+                                    break
+            
+            if not skill_name:
+                return
+            
+            # Get workspace directory
+            workspace_dir = getattr(self.agent, 'workspace_dir', None)
+            if not workspace_dir:
+                return
+            
+            # Record the usage
+            from agent.skills.analytics import record_skill_usage
+            record_skill_usage(
+                workspace_dir=workspace_dir,
+                skill_name=skill_name,
+                success=success,
+                execution_time_ms=execution_time_ms,
+                error_message=error_message
+            )
+            
+            logger.debug(f"[SkillAnalytics] Recorded usage for skill '{skill_name}': success={success}")
+        except Exception as e:
+            logger.warning(f"[SkillAnalytics] Failed to record skill usage: {e}")
 
     def _build_tool_not_found_message(self, tool_name: str) -> str:
         """Build a helpful error message when a tool is not found.
